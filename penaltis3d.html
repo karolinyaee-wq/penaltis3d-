@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>⚽ Pênaltis dos Números Racionais</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;700;900&display=swap');
+
+:root {
+  --yellow: #f7c948;
+  --green:  #3aad63;
+  --red:    #e03c3c;
+  --dark:   #0a120d;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--dark);
+  font-family: 'Nunito', sans-serif;
+  overflow: hidden;
+  width: 100vw; height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  user-select: none;
+}
+
+#title {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 2.2rem;
+  color: var(--yellow);
+  letter-spacing: 5px;
+  text-shadow: 0 0 30px rgba(247,201,72,0.6);
+  margin-bottom: 6px;
+  z-index: 10;
+}
+
+#gameWrapper {
+  position: relative;
+  width: 700px; height: 460px;
+}
+
+#threeCanvas {
+  border-radius: 18px;
+  border: 2px solid rgba(255,255,255,0.07);
+  box-shadow: 0 0 80px rgba(58,173,99,0.35), 0 0 160px rgba(0,0,0,0.7);
+  cursor: crosshair;
+  display: block;
+}
+
+/* ── UI bar ── */
+#ui {
+  display: flex; justify-content: space-between; align-items: center;
+  width: 700px; padding: 7px 2px; color: white; font-weight: 700; font-size: .9rem;
+}
+.badge {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 20px; padding: 4px 16px;
+}
+.badge span { color: var(--yellow); }
+
+/* ── Power bar ── */
+#powerWrap {
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  pointer-events: none; opacity: 0; transition: opacity .3s;
+}
+#powerWrap.show { opacity: 1; }
+#powerLabel { font-family:'Bebas Neue',cursive; color:var(--yellow); font-size:1rem; letter-spacing:2px; }
+#powerBar { width: 200px; height: 12px; background: rgba(255,255,255,0.15); border-radius: 8px; overflow: hidden; border:1px solid rgba(255,255,255,0.2); }
+#powerFill { height:100%; width:0%; background: linear-gradient(90deg,#3aad63,#f7c948,#e03c3c); border-radius:8px; transition: width .05s linear; }
+
+/* ── Aim reticle ── */
+#reticle {
+  position: absolute; pointer-events: none;
+  width: 44px; height: 44px;
+  transform: translate(-50%,-50%);
+  display: none;
+}
+#reticle::before, #reticle::after {
+  content:''; position:absolute; background: rgba(247,201,72,0.85);
+  box-shadow: 0 0 8px rgba(247,201,72,0.6);
+}
+#reticle::before { width:2px; height:44px; left:50%; top:0; transform:translateX(-50%); }
+#reticle::after  { width:44px; height:2px; top:50%; left:0; transform:translateY(-50%); }
+.reticle-ring {
+  position:absolute; inset:6px;
+  border: 2px solid rgba(247,201,72,0.7);
+  border-radius:50%;
+  box-shadow: 0 0 10px rgba(247,201,72,0.4);
+}
+
+/* ── Overlays ── */
+.screen {
+  display:none; position:absolute; inset:0;
+  background: rgba(8,16,10,0.93);
+  border-radius:18px;
+  flex-direction:column; align-items:center; justify-content:center;
+  gap:14px; backdrop-filter:blur(10px); z-index:50; padding:28px; text-align:center;
+}
+.screen.show { display:flex; }
+
+.screen h2 {
+  font-family:'Bebas Neue',cursive; font-size:2.8rem;
+  color:var(--yellow); letter-spacing:3px;
+}
+.screen p { color:rgba(255,255,255,.7); font-size:.95rem; max-width:380px; line-height:1.6; }
+.screen .big { font-family:'Bebas Neue',cursive; font-size:3.8rem; color:white; }
+
+.gbtn {
+  font-family:'Bebas Neue',cursive; font-size:1.35rem; letter-spacing:2px;
+  padding:12px 44px; border:none; border-radius:50px; cursor:pointer;
+  transition:transform .1s, box-shadow .1s;
+}
+.gbtn.green { background:linear-gradient(135deg,#3aad63,#1a5c32); color:white; box-shadow:0 4px 24px rgba(58,173,99,.5); }
+.gbtn.yellow { background:linear-gradient(135deg,var(--yellow),#c98f00); color:#0a120d; box-shadow:0 4px 24px rgba(247,201,72,.4); }
+.gbtn:hover { transform:scale(1.05); }
+.gbtn:active { transform:scale(.97); }
+
+/* result flash */
+#resultFlash {
+  position:absolute; inset:0; border-radius:18px;
+  display:flex; align-items:center; justify-content:center;
+  pointer-events:none; opacity:0; z-index:40;
+  font-family:'Bebas Neue',cursive; font-size:5rem; letter-spacing:4px;
+  text-shadow: 0 0 60px currentColor;
+}
+
+/* ── Quiz ── */
+.quiz-tag {
+  font-family:'Bebas Neue',cursive; font-size:.9rem;
+  letter-spacing:4px; color:var(--yellow); opacity:.85;
+}
+#quizQuestion {
+  font-weight:900; font-size:1.15rem; color:white;
+  max-width:500px; line-height:1.5;
+}
+.quiz-options {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:14px; width:100%; max-width:520px;
+}
+.qbtn {
+  font-family:'Nunito',sans-serif; font-weight:800; font-size:.9rem;
+  padding:12px 10px 10px; border:2px solid rgba(255,255,255,.13);
+  border-radius:14px; background:rgba(255,255,255,.06);
+  color:white; cursor:pointer; transition:all .15s;
+  display:flex; flex-direction:column; align-items:center; gap:7px; line-height:1.3;
+}
+.qbtn:hover { background:rgba(247,201,72,.15); border-color:var(--yellow); transform:scale(1.03); }
+.qbtn.correct { background:rgba(58,173,99,.3)!important; border-color:var(--green)!important; box-shadow:0 0 20px rgba(58,173,99,.4); }
+.qbtn.wrong   { background:rgba(224,60,60,.25)!important; border-color:var(--red)!important; }
+#quizFeedback { font-size:.88rem; font-weight:700; color:white; text-align:center; min-height:20px; max-width:480px; line-height:1.5; }
+
+#hint { margin-top:8px; color:rgba(255,255,255,.3); font-size:.75rem; text-align:center; width:700px; }
+</style>
+</head>
+<body>
+
+<div id="title">⚽ Pênaltis dos Números Racionais</div>
+
+<div id="gameWrapper">
+  <div id="ui">
+    <span class="badge">🏆 Rodada <span id="roundDisp">1</span>/5</span>
+    <span class="badge">⚽ Gols: <span id="goalsDisp">0</span></span>
+    <span class="badge">🧠 Pontos: <span id="scoreDisp">0</span></span>
+  </div>
+
+  <canvas id="threeCanvas" width="700" height="420"></canvas>
+
+  <!-- Reticle -->
+  <div id="reticle"><div class="reticle-ring"></div></div>
+
+  <!-- Power bar -->
+  <div id="powerWrap"><div id="powerLabel">FORÇA</div><div id="powerBar"><div id="powerFill"></div></div></div>
+
+  <!-- Result flash -->
+  <div id="resultFlash"></div>
+
+  <!-- Start screen -->
+  <div id="startScreen" class="screen show">
+    <h2>⚽ Pênaltis dos<br>Números Racionais</h2>
+    <p>Mire na trave, segure o mouse para carregar a força e solte para chutar! Acerte o gol e responda a pergunta de matemática!</p>
+    <button class="gbtn green" id="startBtn">▶ JOGAR</button>
+  </div>
+
+  <!-- End screen -->
+  <div id="endScreen" class="screen">
+    <h2 id="endTitle">FIM DE JOGO</h2>
+    <div class="big" id="endScore"></div>
+    <p id="endMsg"></p>
+    <button class="gbtn green" id="restartBtn">🔄 JOGAR NOVAMENTE</button>
+  </div>
+
+  <!-- Quiz screen -->
+  <div id="quizScreen" class="screen">
+    <div class="quiz-tag">⚽ DESAFIO MATEMÁTICO</div>
+    <div id="quizQuestion"></div>
+    <div class="quiz-options" id="quizOptions"></div>
+    <div id="quizFeedback"></div>
+    <button class="gbtn yellow" id="quizContinue" style="display:none">CONTINUAR ➡</button>
+  </div>
+</div>
+
+<div id="hint">Mova o mouse para mirar · Segure para carregar · Solte para chutar!</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════
+//  THREE.JS SETUP
+// ═══════════════════════════════════════════════
+const canvas  = document.getElementById('threeCanvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setSize(700, 420);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+
+const scene  = new THREE.Scene();
+scene.background = new THREE.Color(0x0a1a10);
+scene.fog = new THREE.Fog(0x0a1a10, 30, 80);
+
+const camera = new THREE.PerspectiveCamera(55, 700/420, 0.1, 200);
+camera.position.set(0, 2.2, 11);
+camera.lookAt(0, 2, 0);
+
+// ── Lights ──────────────────────────────────────
+const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambient);
+
+const sunLight = new THREE.DirectionalLight(0xfff5cc, 1.8);
+sunLight.position.set(5, 20, 10);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(2048, 2048);
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 60;
+sunLight.shadow.camera.left = -20;
+sunLight.shadow.camera.right = 20;
+sunLight.shadow.camera.top = 20;
+sunLight.shadow.camera.bottom = -20;
+scene.add(sunLight);
+
+const fillLight = new THREE.PointLight(0x4488ff, 0.6, 40);
+fillLight.position.set(-8, 6, 5);
+scene.add(fillLight);
+
+const rimLight = new THREE.PointLight(0x00ff88, 0.3, 30);
+rimLight.position.set(0, 8, -10);
+scene.add(rimLight);
+
+// ── Field ───────────────────────────────────────
+function makeField() {
+  // Grass base
+  const grassMat = new THREE.MeshLambertMaterial({ color: 0x1e6b35 });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), grassMat);
+  ground.rotation.x = -Math.PI/2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Stripe pattern via 2 planes
+  const stripeMat = new THREE.MeshLambertMaterial({ color: 0x1a5f30, transparent: true, opacity: 0.6 });
+  for (let i = -4; i <= 4; i += 2) {
+    const stripe = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 60), stripeMat);
+    stripe.rotation.x = -Math.PI/2;
+    stripe.position.set(i * 2.5, 0.002, 0);
+    scene.add(stripe);
+  }
+
+  // Field lines (white planes)
+  const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 });
+  // Penalty box
+  const boxLine = new THREE.Mesh(new THREE.PlaneGeometry(14, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: false, transparent: true, opacity: 0 }));
+  boxLine.rotation.x = -Math.PI/2; boxLine.position.set(0, 0.005, 4);
+  scene.add(boxLine);
+
+  // Lines as thin boxes
+  function addLine(w, d, x, z) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.03, d), lineMat);
+    m.position.set(x, 0.015, z);
+    scene.add(m);
+  }
+  addLine(14, 0.08, 0, 8);   // top penalty line
+  addLine(0.08, 8, -7, 4);   // left
+  addLine(0.08, 8, 7, 4);    // right
+  addLine(6, 0.08, 0, 6.5);  // small box top
+  addLine(0.08, 3.5, -3, 4.75); // small box left
+  addLine(0.08, 3.5, 3, 4.75);  // small box right
+
+  // Penalty spot
+  const spot = new THREE.Mesh(new THREE.CircleGeometry(0.1, 16), lineMat);
+  spot.rotation.x = -Math.PI/2; spot.position.set(0, 0.01, 9.5);
+  scene.add(spot);
+}
+makeField();
+
+// ── Goal ────────────────────────────────────────
+const goalGroup = new THREE.Group();
+scene.add(goalGroup);
+
+function makeGoal() {
+  const postMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.3, metalness: 0.4 });
+  const postGeo = new THREE.CylinderGeometry(0.1, 0.1, 2.8, 12);
+  const barGeo  = new THREE.CylinderGeometry(0.1, 0.1, 7.4, 12);
+
+  // Posts
+  const leftPost  = new THREE.Mesh(postGeo, postMat);
+  const rightPost = new THREE.Mesh(postGeo, postMat);
+  leftPost.position.set(-3.7, 1.4, 0);
+  rightPost.position.set(3.7, 1.4, 0);
+  leftPost.castShadow = rightPost.castShadow = true;
+
+  // Crossbar
+  const crossbar = new THREE.Mesh(barGeo, postMat);
+  crossbar.rotation.z = Math.PI/2;
+  crossbar.position.set(0, 2.85, 0);
+  crossbar.castShadow = true;
+
+  // Back posts
+  const backLeft  = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,2,12), postMat);
+  const backRight = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,2,12), postMat);
+  backLeft.position.set(-3.7, 1.0, -2);
+  backRight.position.set(3.7, 1.0, -2);
+
+  // Top back bar
+  const topBack = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,7.4,12), postMat);
+  topBack.rotation.z = Math.PI/2; topBack.position.set(0, 2.0, -2);
+
+  goalGroup.add(leftPost, rightPost, crossbar, backLeft, backRight, topBack);
+
+  // Net — grid of lines using LineSegments
+  const netMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25 });
+  const netPts = [];
+  const NW = 7.4, NH = 2.8, ND = 2;
+  const cols = 16, rows = 8, deps = 5;
+  for (let r = 0; r <= rows; r++) {
+    for (let c = 0; c <= cols; c++) {
+      const x = -NW/2 + c*(NW/cols), y = r*(NH/rows);
+      netPts.push(x, y, 0, x, y, -ND);
+    }
+  }
+  for (let r = 0; r <= rows; r++) {
+    for (let d = 0; d <= deps; d++) {
+      const y = r*(NH/rows), z = -d*(ND/deps);
+      netPts.push(-NW/2, y, z, NW/2, y, z);
+    }
+  }
+  for (let c = 0; c <= cols; c++) {
+    for (let d = 0; d <= deps; d++) {
+      const x = -NW/2 + c*(NW/cols), z = -d*(ND/deps);
+      netPts.push(x, 0, z, x, NH, z);
+    }
+  }
+  const netGeo = new THREE.BufferGeometry();
+  netGeo.setAttribute('position', new THREE.Float32BufferAttribute(netPts, 3));
+  goalGroup.add(new THREE.LineSegments(netGeo, netMat));
+
+  goalGroup.position.set(0, 0, -1);
+}
+makeGoal();
+
+// ── Ball ────────────────────────────────────────
+const ballGroup = new THREE.Group();
+scene.add(ballGroup);
+
+function makeBall() {
+  const ballGeo = new THREE.SphereGeometry(0.22, 24, 24);
+
+  // White base
+  const ballMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.4, metalness: 0.05 });
+  const ballMesh = new THREE.Mesh(ballGeo, ballMat);
+  ballMesh.castShadow = true;
+  ballGroup.add(ballMesh);
+
+  // Black pentagon patches (approximate with icosahedron faces)
+  const patchMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+  const patchPos = [
+    [0, 0.22, 0], [0, -0.22, 0],
+    [0.21, 0.07, 0], [-0.21, 0.07, 0],
+    [0.13, -0.17, 0.16], [-0.13, -0.17, 0.16],
+    [0.13, -0.17, -0.16], [-0.13, -0.17, -0.16],
+  ];
+  patchPos.forEach(([px, py, pz]) => {
+    const patch = new THREE.Mesh(new THREE.CircleGeometry(0.065, 5), patchMat);
+    const dir = new THREE.Vector3(px, py, pz).normalize();
+    patch.position.copy(dir.multiplyScalar(0.225));
+    patch.lookAt(patch.position.clone().multiplyScalar(2));
+    ballGroup.add(patch);
+  });
+
+  ballGroup.position.set(0, 0.22, 9.5);
+}
+makeBall();
+
+// ── Goalkeeper ──────────────────────────────────
+const gkGroup = new THREE.Group();
+scene.add(gkGroup);
+
+function makeGK() {
+  // Body
+  const jerseyMat = new THREE.MeshStandardMaterial({ color: 0xe8c020, roughness: 0.6 });
+  const shortsMat = new THREE.MeshStandardMaterial({ color: 0x1a3d8a, roughness: 0.6 });
+  const skinMat   = new THREE.MeshStandardMaterial({ color: 0xf5c5a0, roughness: 0.7 });
+  const gloveMat  = new THREE.MeshStandardMaterial({ color: 0xff6600, roughness: 0.5 });
+
+  // Torso
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.35), jerseyMat);
+  torso.position.set(0, 1.35, 0); torso.castShadow = true;
+
+  // Shorts
+  const shorts = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.35, 0.33), shortsMat);
+  shorts.position.set(0, 0.85, 0);
+
+  // Legs
+  const legGeo = new THREE.CylinderGeometry(0.13, 0.1, 0.55, 8);
+  const legL = new THREE.Mesh(legGeo, shortsMat); legL.position.set(-0.16, 0.5, 0);
+  const legR = new THREE.Mesh(legGeo, shortsMat); legR.position.set( 0.16, 0.5, 0);
+
+  // Boots
+  const bootGeo = new THREE.BoxGeometry(0.18, 0.15, 0.28);
+  const bootMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+  const bootL = new THREE.Mesh(bootGeo, bootMat); bootL.position.set(-0.16, 0.19, 0.04);
+  const bootR = new THREE.Mesh(bootGeo, bootMat); bootR.position.set( 0.16, 0.19, 0.04);
+
+  // Head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), skinMat);
+  head.position.set(0, 1.93, 0); head.castShadow = true;
+
+  // Arms (out wide)
+  const armGeo = new THREE.CylinderGeometry(0.08, 0.07, 0.65, 8);
+  const armL = new THREE.Mesh(armGeo, jerseyMat);
+  armL.rotation.z =  0.9; armL.position.set(-0.62, 1.45, 0);
+  const armR = new THREE.Mesh(armGeo, jerseyMat);
+  armR.rotation.z = -0.9; armR.position.set( 0.62, 1.45, 0);
+
+  // Gloves
+  const gloveGeo = new THREE.SphereGeometry(0.13, 10, 10);
+  const gloveL = new THREE.Mesh(gloveGeo, gloveMat); gloveL.position.set(-1.02, 1.1, 0);
+  const gloveR = new THREE.Mesh(gloveGeo, gloveMat); gloveR.position.set( 1.02, 1.1, 0);
+
+  [torso,shorts,legL,legR,bootL,bootR,head,armL,armR,gloveL,gloveR].forEach(m => {
+    m.castShadow = true; gkGroup.add(m);
+  });
+
+  gkGroup.position.set(0, 0, 0.2);
+}
+makeGK();
+
+// ── Player sprite (Rubens Rangel) ────────────────
+const playerGroup = new THREE.Group();
+scene.add(playerGroup);
+
+function makePlayer() {
+  const img = new Image();
+  img.onload = () => {
+    const tex = new THREE.Texture(img);
+    tex.needsUpdate = true;
+
+    // Billboard sprite — faces camera always
+    const aspect = 180 / 360; // width/height of our cropped image
+    const h = 2.8, w = h * aspect;
+    const geo = new THREE.PlaneGeometry(w, h);
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      alphaTest: 0.05,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(0, h / 2, 0);
+    playerGroup.add(mesh);
+
+    // Shadow ellipse under player
+    const shadowGeo = new THREE.CircleGeometry(0.55, 24);
+    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 });
+    const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.set(0, 0.01, 0);
+    playerGroup.add(shadow);
+
+    // Name tag above player
+    const canvas2d = document.createElement('canvas');
+    canvas2d.width = 256; canvas2d.height = 48;
+    const ctx2 = canvas2d.getContext('2d');
+    ctx2.fillStyle = 'rgba(10,20,14,0.78)';
+    ctx2.roundRect(0, 4, 256, 40, 10);
+    ctx2.fill();
+    ctx2.font = 'bold 22px Bebas Neue, sans-serif';
+    ctx2.fillStyle = '#f7c948';
+    ctx2.textAlign = 'center';
+    ctx2.fillText('RUBENS RANGEL', 128, 32);
+    const nameTex = new THREE.CanvasTexture(canvas2d);
+    const nameMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.6, 0.3),
+      new THREE.MeshBasicMaterial({ map: nameTex, transparent: true, depthWrite: false })
+    );
+    nameMesh.position.set(0, h + 0.28, 0);
+    playerGroup.add(nameMesh);
+  };
+  img.src = 'data:image/jpeg;base64,' + PLAYER_B64;
+}
+
+const PLAYER_B64 = "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";
+
+makePlayer();
+playerGroup.position.set(0, 0, 10.5);
+
+// ── Crowd / stadium backdrop ─────────────────────
+function makeStadium() {
+  // Stands left
+  const standGeo = new THREE.BoxGeometry(30, 8, 2);
+  const standMat = new THREE.MeshLambertMaterial({ color: 0x1a2a1e });
+  const standBack = new THREE.Mesh(standGeo, standMat);
+  standBack.position.set(0, 4, -18);
+  scene.add(standBack);
+
+  // Crowd dots
+  const crowdColors = [0xff4444, 0x4488ff, 0xffdd44, 0x44ff88, 0xff88cc, 0xffffff];
+  for (let i = 0; i < 300; i++) {
+    const c = crowdColors[Math.floor(Math.random()*crowdColors.length)];
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 6, 6),
+      new THREE.MeshBasicMaterial({ color: c })
+    );
+    m.position.set(
+      (Math.random()-0.5)*28,
+      1 + Math.random()*5.5,
+      -17 + Math.random()*0.5
+    );
+    scene.add(m);
+  }
+
+  // Floodlights
+  const poleGeo = new THREE.CylinderGeometry(0.12, 0.15, 12, 8);
+  const poleMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+  [[-12,0,-8],[12,0,-8],[-12,0,8],[12,0,8]].forEach(([x,y,z]) => {
+    const pole = new THREE.Mesh(poleGeo, poleMat);
+    pole.position.set(x, 6, z); scene.add(pole);
+    const light = new THREE.SpotLight(0xfff8e0, 1.2, 50, Math.PI/4, 0.5);
+    light.position.set(x, 12, z); light.target.position.set(0, 0, 4);
+    scene.add(light); scene.add(light.target);
+  });
+}
+makeStadium();
+
+// ── Particles ────────────────────────────────────
+const particleSystems = [];
+
+function spawnParticles3D(pos, color) {
+  const geo = new THREE.BufferGeometry();
+  const N = 60;
+  const positions = new Float32Array(N * 3);
+  const velocities = [];
+  for (let i = 0; i < N; i++) {
+    positions[i*3]   = pos.x;
+    positions[i*3+1] = pos.y;
+    positions[i*3+2] = pos.z;
+    velocities.push(new THREE.Vector3(
+      (Math.random()-.5)*0.3,
+      Math.random()*0.25 + 0.05,
+      (Math.random()-.5)*0.3
+    ));
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.PointsMaterial({ color, size: 0.15, transparent: true, opacity: 1 });
+  const pts = new THREE.Points(geo, mat);
+  scene.add(pts);
+  particleSystems.push({ pts, velocities, life: 1 });
+}
+
+function updateParticles() {
+  for (let i = particleSystems.length - 1; i >= 0; i--) {
+    const ps = particleSystems[i];
+    ps.life -= 0.025;
+    if (ps.life <= 0) { scene.remove(ps.pts); particleSystems.splice(i,1); continue; }
+    ps.pts.material.opacity = ps.life;
+    const pos = ps.pts.geometry.attributes.position.array;
+    for (let j = 0; j < ps.velocities.length; j++) {
+      ps.velocities[j].y -= 0.01;
+      pos[j*3]   += ps.velocities[j].x;
+      pos[j*3+1] += ps.velocities[j].y;
+      pos[j*3+2] += ps.velocities[j].z;
+    }
+    ps.pts.geometry.attributes.position.needsUpdate = true;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  GAME LOGIC
+// ═══════════════════════════════════════════════
+let gameRunning = false;
+let phase = 'idle'; // idle | charging | flying | result | quiz
+let round = 1, totalRounds = 5, goals = 0, score = 0;
+let mouseX = 0, mouseY = 0; // normalized aim -1..1
+let power = 0, charging = false, powerDir = 1;
+let ballFlying = false, ballT = 0;
+let ballStart = new THREE.Vector3(), ballTarget = new THREE.Vector3();
+let gkTargetX = 0, gkDiveSpeed = 0;
+let resultTimer = 0;
+let shotGoal = false;
+
+const roundDisp = document.getElementById('roundDisp');
+const goalsDisp = document.getElementById('goalsDisp');
+const scoreDisp = document.getElementById('scoreDisp');
+const powerWrap = document.getElementById('powerWrap');
+const powerFill = document.getElementById('powerFill');
+const reticle   = document.getElementById('reticle');
+const resultFlash = document.getElementById('resultFlash');
+
+// Aim → world pos on goal plane
+function aimToWorld(nx, ny) {
+  // nx, ny in -1..1
+  const gx = nx * 3.3;
+  const gy = 1.5 + ny * 1.3;
+  return new THREE.Vector3(gx, gy, -1);
+}
+
+function startCharge() {
+  if (phase !== 'aiming') return;
+  charging = true;
+  phase = 'charging';
+  power = 0; powerDir = 1;
+  powerWrap.classList.add('show');
+}
+
+function releaseShot() {
+  if (phase !== 'charging') return;
+  charging = false;
+  powerWrap.classList.remove('show');
+  phase = 'flying';
+
+  // target with slight inaccuracy based on power extremes
+  const inaccuracy = Math.abs(power - 0.5) * 0.4;
+  const tx = aimToWorld(mouseX, mouseY);
+  tx.x += (Math.random()-.5)*inaccuracy;
+  tx.y += (Math.random()-.5)*inaccuracy*0.5;
+  tx.z = -1;
+
+  ballStart.copy(ballGroup.position);
+  ballTarget.copy(tx);
+  ballT = 0;
+
+  // GK dive — biased
+  const bias = mouseX < -0.25 ? -1 : mouseX > 0.25 ? 1 : (Math.random()<.5?-1:1);
+  gkTargetX = bias * (2.2 + Math.random()*1.2);
+  gkDiveSpeed = 0.12 + power * 0.06;
+}
+
+function updateBall() {
+  if (phase !== 'flying') return;
+  ballT += 0.04 + power * 0.03;
+
+  const t = Math.min(ballT, 1);
+  const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t; // ease in-out
+
+  ballGroup.position.lerpVectors(ballStart, ballTarget, ease);
+
+  // Arc height
+  const arc = Math.sin(t * Math.PI) * (0.8 + power * 0.6);
+  ballGroup.position.y += arc;
+
+  // Spin
+  ballGroup.rotation.x -= 0.18;
+  ballGroup.rotation.z += 0.05;
+
+  if (ballT >= 1) {
+    checkResult();
+  }
+}
+
+function updateGK() {
+  if (phase === 'flying' || phase === 'result') {
+    gkGroup.position.x += (gkTargetX - gkGroup.position.x) * gkDiveSpeed;
+    // Lean on dive
+    gkGroup.rotation.z = -(gkTargetX - gkGroup.position.x) * 0.08;
+  }
+}
+
+function checkResult() {
+  const bx = ballGroup.position.x;
+  const by = ballGroup.position.y;
+
+  const inGoalX = bx > -3.6 && bx < 3.6;
+  const inGoalY = by > 0.15 && by < 2.75;
+
+  // GK hitbox
+  const gkHit = Math.abs(bx - gkGroup.position.x) < 1.2 && by < 2.5 && by > 0.2;
+
+  if (inGoalX && inGoalY && !gkHit) {
+    shotGoal = true;
+    goals++;
+    goalsDisp.textContent = goals;
+    flashResult('GOOOOOL! ⚽', '#7fff00');
+    spawnParticles3D(ballGroup.position.clone(), 0xf7c948);
+    spawnParticles3D(ballGroup.position.clone(), 0x7fff00);
+  } else {
+    shotGoal = false;
+    const txt = gkHit ? 'DEFENDIDO! 🧤' : 'FORA! ❌';
+    const col = gkHit ? '#f7c948' : '#e03c3c';
+    flashResult(txt, col);
+    spawnParticles3D(ballGroup.position.clone(), gkHit ? 0xf7c948 : 0xe03c3c);
+  }
+
+  phase = 'result';
+  resultTimer = 0;
+}
+
+function flashResult(text, color) {
+  resultFlash.textContent = text;
+  resultFlash.style.color = color;
+  resultFlash.style.opacity = 1;
+  setTimeout(() => { resultFlash.style.transition = 'opacity 0.6s'; resultFlash.style.opacity = 0; }, 900);
+}
+
+function resetShot() {
+  phase = 'aiming';
+  ballGroup.position.set(0, 0.22, 9.5);
+  ballGroup.rotation.set(0, 0, 0);
+  gkGroup.position.set(0, 0, 0.2);
+  gkGroup.rotation.set(0, 0, 0);
+  gkTargetX = 0;
+  power = 0;
+  powerFill.style.width = '0%';
+  resultFlash.style.transition = 'none';
+  resultFlash.style.opacity = 0;
+}
+
+// ── Quiz ──────────────────────────────────────────
+const SVGs = {
+  integerYes:`<svg width="72" height="58" viewBox="0 0 72 58"><circle cx="36" cy="27" r="22" fill="#3aad63" opacity=".2" stroke="#3aad63" stroke-width="2"/><text x="36" y="36" font-size="26" font-weight="900" fill="#f7c948" text-anchor="middle" font-family="Bebas Neue,sans-serif">3</text><text x="58" y="14" font-size="18" fill="#3aad63" text-anchor="middle">✓</text></svg>`,
+  integerNo: `<svg width="72" height="58" viewBox="0 0 72 58"><circle cx="36" cy="27" r="22" fill="#e03c3c" opacity=".2" stroke="#e03c3c" stroke-width="2"/><text x="36" y="36" font-size="26" font-weight="900" fill="#f7c948" text-anchor="middle" font-family="Bebas Neue,sans-serif">3</text><text x="58" y="14" font-size="18" fill="#e03c3c" text-anchor="middle">✗</text></svg>`,
+  frac24:`<svg width="72" height="58" viewBox="0 0 72 58"><text x="36" y="22" font-size="20" font-weight="900" fill="white" text-anchor="middle" font-family="Nunito,sans-serif">2</text><line x1="18" y1="30" x2="54" y2="30" stroke="#f7c948" stroke-width="2.5"/><text x="36" y="50" font-size="20" font-weight="900" fill="white" text-anchor="middle" font-family="Nunito,sans-serif">4</text></svg>`,
+  frac42:`<svg width="72" height="58" viewBox="0 0 72 58"><text x="36" y="22" font-size="20" font-weight="900" fill="white" text-anchor="middle" font-family="Nunito,sans-serif">4</text><line x1="18" y1="30" x2="54" y2="30" stroke="#e03c3c" stroke-width="2.5"/><text x="36" y="50" font-size="20" font-weight="900" fill="white" text-anchor="middle" font-family="Nunito,sans-serif">2</text></svg>`,
+  decimalYes:`<svg width="72" height="58" viewBox="0 0 72 58"><rect x="5" y="14" width="62" height="30" rx="8" fill="#3aad63" opacity=".2" stroke="#3aad63" stroke-width="1.5"/><text x="36" y="35" font-size="18" font-weight="900" fill="white" text-anchor="middle" font-family="Nunito,sans-serif">1,5 km</text><text x="62" y="14" font-size="15" fill="#3aad63">✓</text></svg>`,
+  decimalNo:`<svg width="72" height="58" viewBox="0 0 72 58"><rect x="5" y="14" width="62" height="30" rx="8" fill="#e03c3c" opacity=".2" stroke="#e03c3c" stroke-width="1.5"/><text x="36" y="35" font-size="18" font-weight="900" fill="white" text-anchor="middle" font-family="Nunito,sans-serif">1,5 km</text><text x="62" y="14" font-size="15" fill="#e03c3c">✗</text></svg>`,
+  allRational:`<svg width="72" height="58" viewBox="0 0 72 58"><text x="8" y="22" font-size="13" font-weight="900" fill="#f7c948" font-family="Nunito,sans-serif">2</text><text x="27" y="22" font-size="13" font-weight="900" fill="#f7c948" font-family="Nunito,sans-serif">0,5</text><text x="52" y="22" font-size="13" font-weight="900" fill="#f7c948" font-family="Nunito,sans-serif">¾</text><line x1="6" y1="28" x2="66" y2="28" stroke="#3aad63" stroke-width="1.5" stroke-dasharray="3,2"/><text x="36" y="48" font-size="11" font-weight="700" fill="#3aad63" text-anchor="middle" font-family="Nunito,sans-serif">todos racionais ✓</text></svg>`,
+  onlyTwo:`<svg width="72" height="58" viewBox="0 0 72 58"><text x="8" y="22" font-size="13" font-weight="900" fill="#f7c948" font-family="Nunito,sans-serif">2</text><text x="27" y="22" font-size="13" fill="rgba(255,255,255,.25)" font-family="Nunito,sans-serif">0,5</text><text x="52" y="22" font-size="13" fill="rgba(255,255,255,.25)" font-family="Nunito,sans-serif">¾</text><text x="36" y="48" font-size="11" font-weight="700" fill="#e03c3c" text-anchor="middle" font-family="Nunito,sans-serif">só o 2 ✗</text></svg>`,
+  score34:`<svg width="72" height="58" viewBox="0 0 72 58"><rect x="4" y="10" width="64" height="38" rx="8" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/><text x="22" y="36" font-size="24" font-weight="900" fill="#3aad63" text-anchor="middle" font-family="Bebas Neue,sans-serif">3</text><text x="36" y="36" font-size="18" fill="rgba(255,255,255,.4)" text-anchor="middle" font-family="Bebas Neue,sans-serif">x</text><text x="50" y="36" font-size="24" font-weight="900" fill="#e03c3c" text-anchor="middle" font-family="Bebas Neue,sans-serif">1</text><text x="36" y="56" font-size="10" fill="#f7c948" text-anchor="middle" font-family="Nunito,sans-serif">3/4 ✓</text></svg>`,
+  score13:`<svg width="72" height="58" viewBox="0 0 72 58"><rect x="4" y="10" width="64" height="38" rx="8" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/><text x="22" y="36" font-size="24" font-weight="900" fill="#3aad63" text-anchor="middle" font-family="Bebas Neue,sans-serif">3</text><text x="36" y="36" font-size="18" fill="rgba(255,255,255,.4)" text-anchor="middle" font-family="Bebas Neue,sans-serif">x</text><text x="50" y="36" font-size="24" font-weight="900" fill="#e03c3c" text-anchor="middle" font-family="Bebas Neue,sans-serif">1</text><text x="36" y="56" font-size="10" fill="#e03c3c" text-anchor="middle" font-family="Nunito,sans-serif">1/3 ✗</text></svg>`,
+};
+
+const quizData = [
+  { q:"Um time fez 3 gols numa partida. O número 3 é um número racional?", opts:[{label:"Sim — todo inteiro é racional",svg:SVGs.integerYes},{label:"Não — inteiros não são racionais",svg:SVGs.integerNo}], correct:0, exp:"✅ Todo número inteiro é racional — pode ser escrito como fração (3 = 3/1)!" },
+  { q:"Um jogador acertou 2 de 4 pênaltis. Qual fração representa os acertos?", opts:[{label:"2/4 ou 1/2",svg:SVGs.frac24},{label:"4/2 ou 2",svg:SVGs.frac42}], correct:0, exp:"✅ 2 acertos em 4 tentativas = 2/4 = 1/2. Simplificando dividindo por 2!" },
+  { q:"Um jogador correu 1,5 km no treino. Esse número é racional?", opts:[{label:"Não — decimais não são racionais",svg:SVGs.decimalNo},{label:"Sim — 1,5 = 3/2 é uma fração!",svg:SVGs.decimalYes}], correct:1, exp:"✅ 1,5 = 3/2 → é racional! Todo decimal finito pode virar fração." },
+  { q:"Quais desses números do futebol são racionais: 2, 0,5 e 3/4?", opts:[{label:"Só o número 2",svg:SVGs.onlyTwo},{label:"Todos os três!",svg:SVGs.allRational}], correct:1, exp:"✅ Inteiros, decimais finitos e frações são todos números racionais!" },
+  { q:"Um time fez 3 gols e levou 1. Qual fração representa os gols marcados no total?", opts:[{label:"3/4 — correto!",svg:SVGs.score34},{label:"1/3 — errado!",svg:SVGs.score13}], correct:0, exp:"✅ Total = 3+1 = 4 gols. Marcados = 3. Fração = 3/4!" },
+];
+let quizIdx = 0, quizAnswered = false;
+
+const quizScreen  = document.getElementById('quizScreen');
+const startScreen = document.getElementById('startScreen');
+const endScreen   = document.getElementById('endScreen');
+
+function showQuiz() {
+  gameRunning = false;
+  quizAnswered = false;
+  const q = quizData[quizIdx % quizData.length];
+  document.getElementById('quizQuestion').textContent = q.q;
+  document.getElementById('quizFeedback').textContent = '';
+  document.getElementById('quizContinue').style.display = 'none';
+  const opts = document.getElementById('quizOptions');
+  opts.innerHTML = '';
+  q.opts.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'qbtn';
+    btn.innerHTML = opt.svg + `<span>${opt.label}</span>`;
+    btn.onclick = () => answerQuiz(i, btn, q);
+    opts.appendChild(btn);
+  });
+  quizScreen.classList.add('show');
+}
+
+function answerQuiz(idx, btn, q) {
+  if (quizAnswered) return;
+  quizAnswered = true;
+  document.querySelectorAll('.qbtn').forEach(b => b.style.pointerEvents = 'none');
+  const feed = document.getElementById('quizFeedback');
+  const cont = document.getElementById('quizContinue');
+  if (idx === q.correct) {
+    btn.classList.add('correct'); score += 100; scoreDisp.textContent = score;
+    feed.style.color = '#7fff00'; feed.textContent = q.exp;
+  } else {
+    btn.classList.add('wrong');
+    document.querySelectorAll('.qbtn')[q.correct].classList.add('correct');
+    feed.style.color = '#e03c3c'; feed.textContent = '❌ Quase! ' + q.exp;
+  }
+  quizIdx++;
+  cont.style.display = 'inline-block';
+  cont.onclick = () => {
+    quizScreen.classList.remove('show');
+    if (round >= totalRounds) { endGame(); return; }
+    round++; roundDisp.textContent = round;
+    resetShot();
+    gameRunning = true;
+    requestAnimationFrame(animate);
+  };
+}
+
+function endGame() {
+  gameRunning = false;
+  const pct = Math.round((goals/totalRounds)*100);
+  const emoji = goals>=4?'🏆':goals>=2?'👏':'😅';
+  document.getElementById('endTitle').textContent = emoji + ' FIM DE JOGO';
+  document.getElementById('endScore').textContent = goals+'/'+totalRounds+' gols';
+  document.getElementById('endMsg').textContent = pct+'% de aproveitamento · '+score+' pontos de matemática';
+  endScreen.classList.add('show');
+}
+
+function startGame() {
+  round=1; goals=0; score=0; quizIdx=0;
+  roundDisp.textContent=1; goalsDisp.textContent=0; scoreDisp.textContent=0;
+  startScreen.classList.remove('show');
+  endScreen.classList.remove('show');
+  resetShot();
+  gameRunning = true;
+  requestAnimationFrame(animate);
+}
+
+// ── Input ────────────────────────────────────────
+const rect = canvas.getBoundingClientRect();
+
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  const px = (e.clientX - r.left) / r.width;
+  const py = (e.clientY - r.top)  / r.height;
+  mouseX = (px - 0.5) * 2;
+  mouseY = -(py - 0.5) * 2;
+
+  reticle.style.display = 'block';
+  reticle.style.left = (e.clientX - r.left) + 'px';
+  reticle.style.top  = (e.clientY - r.top)  + 'px';
+});
+
+canvas.addEventListener('mouseleave', () => { reticle.style.display = 'none'; });
+
+canvas.addEventListener('mousedown', e => {
+  if (gameRunning && phase === 'aiming') startCharge();
+});
+canvas.addEventListener('mouseup', e => {
+  if (phase === 'charging') releaseShot();
+});
+
+// Touch
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  mouseX = ((e.touches[0].clientX - r.left)/r.width - 0.5)*2;
+  mouseY = -(( e.touches[0].clientY - r.top)/r.height - 0.5)*2;
+  if (gameRunning && phase === 'aiming') startCharge();
+}, {passive:false});
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (phase === 'charging') releaseShot();
+}, {passive:false});
+
+document.getElementById('startBtn').onclick   = startGame;
+document.getElementById('restartBtn').onclick = startGame;
+
+// ── Camera wobble ────────────────────────────────
+let camWobble = 0;
+
+// ── Main loop ────────────────────────────────────
+let frameCount = 0;
+
+function animate() {
+  if (!gameRunning) return;
+  requestAnimationFrame(animate);
+  frameCount++;
+
+  // Power bar pulse
+  if (phase === 'charging') {
+    power += 0.022 * powerDir;
+    if (power >= 1) { power = 1; powerDir = -1; }
+    if (power <= 0) { power = 0; powerDir =  1; }
+    powerFill.style.width = (power*100) + '%';
+  }
+
+  // Billboard: player always faces camera
+  playerGroup.quaternion.copy(camera.quaternion);
+
+  // Player kick animation
+  if (phase === 'flying') {
+    playerGroup.position.z = 10.5 + ballT * 0.4;
+    playerGroup.rotation.x = Math.sin(ballT * Math.PI) * 0.15;
+  } else {
+    playerGroup.position.z = 10.5;
+    playerGroup.rotation.x = 0;
+  }
+
+  updateBall();
+  updateGK();
+  updateParticles();
+
+  // Result → quiz or next round
+  if (phase === 'result') {
+    resultTimer++;
+    if (resultTimer > 65) {
+      if (shotGoal) {
+        showQuiz();
+      } else {
+        if (round >= totalRounds) { endGame(); return; }
+        round++; roundDisp.textContent = round;
+        resetShot();
+      }
+    }
+  }
+
+  // Camera subtle bob
+  camWobble += 0.012;
+  camera.position.y = 2.2 + Math.sin(camWobble) * 0.04;
+
+  // Aim indicator: move a subtle spotlight
+  if (phase === 'aiming' || phase === 'charging') {
+    const aimWorld = aimToWorld(mouseX*0.6, mouseY*0.6);
+    fillLight.position.x = aimWorld.x * 0.5;
+  }
+
+  renderer.render(scene, camera);
+}
+
+// Initial render
+renderer.render(scene, camera);
+</script>
+</body>
+</html>
